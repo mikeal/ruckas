@@ -1,0 +1,26 @@
+{
+  "name": "ruckas",
+  "version": "0.1.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "start": "beefy index.js:bundle.js --open --index index.html"
+  },
+  "keywords": [],
+  "author": "Mikeal Rogers <mikeal.rogers@gmail.com> (http://www.mikealrogers.com)",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "drag-drop": "^2.12.1",
+    "funky": "^1.4.0",
+    "getusermedia": "^2.0.0",
+    "killa-beez": "^1.2.0",
+    "stream-to-blob-url": "^2.1.0",
+    "webtorrent": "^0.96.4"
+  },
+  "devDependencies": {
+    "beefy": "^2.1.8",
+    "browserify": "^13.1.0",
+    "install": "^0.8.1",
+    "watchify": "^3.7.0"
+  }
+}
