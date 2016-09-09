@@ -85,13 +85,13 @@ const recordButton = bel`
 const trackPlayerView = funky`
 <div class="track-player">
   <div class="ui large buttons">
-  <button class="ui button">
-    <i class="play icon"></i>
-  </button>
-  <div class="or"></div>
-  <a download="track.opus" class="ui button">
-    <i class="save icon"></i>
-  </a>
+    <button class="fluid ui button play-button">
+      <i class="play icon"></i>
+    </button>
+    <a download="track.opus" class="fluid ui button">
+      <i class="save icon"></i>
+    </a>
+  </div>
 </div>
 `
 
@@ -106,18 +106,19 @@ function addTrackPlayer (publicKey, blobURL) {
   trackPlayer.querySelector('a').href = blobURL
 
   let playIcon = trackPlayer.querySelector('i')
+  let playButton = trackPlayer.querySelector('button.play-button')
 
   let _play = () => {
     audio.play()
     $(playIcon).removeClass('play').addClass('pause')
-    playIcon.onclick = _pause
+    playButton.onclick = _pause
   }
   let _pause = () => {
     audio.pause()
     $(playIcon).removeClass('pause').addClass('play')
-    playIcon.onclick = _play
+    playButton.onclick = _play
   }
-  playIcon.onclick = _play
+  playButton.onclick = _play
 
   document
   .getElementById(`a${publicKey}`)
