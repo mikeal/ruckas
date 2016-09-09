@@ -81,6 +81,49 @@ const recordButton = bel`
 </button>
 `
 
+const trackPlayerView = funky`
+<div class="track-player">
+  <div class="ui large buttons">
+  <button class="ui button">
+    <i class="play icon"></i>
+  </button>
+  <div class="or"></div>
+  <a download="track.opus" class="ui button">
+    <i class="save icon"></i>
+  </a>
+</div>
+`
+
+function addTrackPlayer (publicKey, blobURL) {
+  let audio = document.createElement('audio')
+  audio.src = blobURL
+  audio.autoplay = false
+  audio.controls = false
+
+  let trackPlayer = trackPlayerView()
+  trackPlayer.appendChild(audio)
+  trackPlayer.querySelector('a').href = blobURL
+
+  let playIcon = trackPlayer.querySelector('i')
+
+  let _play = () => {
+    audio.play()
+    $(playIcon).removeClass('play').addClass('pause')
+    playIcon.onclick = _pause
+  }
+  let _pause = () => {
+    audio.pause()
+    $(playIcon).removeClass('pause').addClass('play')
+    playIcon.onclick = _play
+  }
+  playIcon.onclick = _play
+
+  document
+  .getElementById(`a${publicKey}`)
+  .querySelector('div.track')
+  .appendChild(trackPlayer)
+}
+
 function startRecording () {
   let constraints = { audio: true, video: false}
   let chunks = []
@@ -99,11 +142,7 @@ function startRecording () {
     console.log('onstop')
     let fullblob = new Blob(chunks, { 'type' : 'audio/ogg; codecs=opus' })
     var audioURL = window.URL.createObjectURL(fullblob)
-    let audio = document.createElement('audio')
-    audio.src = audioURL
-    audio.controls = true
-    let elem = document.getElementById(`aundefined`).querySelector('div.track')
-    elem.appendChild(audio)
+    addTrackPlayer('undefined', audioURL)
 
     blobToBuffer(fullblob, (err, buffer) => {
       if (err) return console.error(err)
@@ -112,7 +151,7 @@ function startRecording () {
         console.log('recorded', torrent)
         values(mySwarm.remotes).forEach(remote => {
           console.log('calling remote')
-          remote.getTrack(torrent)
+          remote.getTrack(torrent.magnetURI)
         })
       })
     })
@@ -125,10 +164,14 @@ function startRecording () {
 
 function setupSwarm (swarm) {
   swarm.rpc.getTrack = torrent => {
-    torrenetClient.add(torrent, _torrent => {
+    console.log('getTrack', torrent)
+    torrentClient.add(torrent, _torrent => {
       let id = _torrent.name.slice(0, _torrent.name.lastIndexOf('.'))
-      let elem = document.getElementById(`a${id}`).querySelector('div.track')
-      _torrent.files[0].appentTo(elem)
+      console.log(_torrent.files[0])
+      getBlobURL(_torrent.files[0], (err, url) => {
+        if (err) return console.error(err)
+        addTrackPlayer(id, url)
+      })
     })
   }
   swarm.rpc.startRecording = () => {
@@ -164,7 +207,14 @@ function joinRoom (infoHash, room) {
       document.getElementById('audio-container').appendChild(elem)
     })
     swarm.on('disconnect', pubKey => {
-      $(document.getElementById(`a${pubKey}`)).remove()
+      let elem = document.getElementById(`a${pubKey}`)
+      if (recordButton.getAttribute('disabled')) {
+        $(elem.querySelector('canvas')).remove()
+        $(elem.querySelector('div.volume')).remove()
+      } else {
+        $(elem).remove()
+      }
+
     })
     document.getElementById('audio-container').appendChild(p)
 
