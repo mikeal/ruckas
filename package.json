@@ -10,10 +10,14 @@
   "author": "Mikeal Rogers <mikeal.rogers@gmail.com> (http://www.mikealrogers.com)",
   "license": "Apache-2.0",
   "dependencies": {
+    "bel": "^4.4.3",
+    "bl": "^1.1.2",
+    "blob-to-buffer": "^1.2.6",
     "drag-drop": "^2.12.1",
     "funky": "^1.4.0",
     "getusermedia": "^2.0.0",
     "killa-beez": "^1.2.0",
+    "once": "^1.4.0",
     "stream-to-blob-url": "^2.1.0",
     "webtorrent": "^0.96.4"
   },

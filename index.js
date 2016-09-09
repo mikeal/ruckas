@@ -5,6 +5,11 @@ const qs = require('querystring')
 const dragDrop = require('drag-drop')
 const streamToBlobURL = require('stream-to-blob-url')
 const WebTorrent = require('webtorrent')
+const bel = require('bel')
+const bl = require('bl')
+const blobToBuffer = require('blob-to-buffer')
+const once = require('once')
+const values = obj => Object.keys(obj).map(k => obj[k])
 const torrentClient = new WebTorrent()
 
 let signalHost = 'https://signalexchange.now.sh'
@@ -33,6 +38,9 @@ const beatTrackView = funky`
 </div>
 `
 
+let myMicrophone
+let myPublicKey
+
 function addBeatTrack (file) {
   getBlobURL(file, (err, url) => {
     if (err) console.error(err)
@@ -42,20 +50,90 @@ function addBeatTrack (file) {
     elem.addEventListener('error', (err) => console.error)
     elem.addEventListener('canplay', () => {
       console.log('audio is ready')
-      // TODO: RPC ready message.
-      let duration = elem.duration - 1
+      let duration = Math.floor(elem.duration) - 1
       progress = track.querySelector('input.progress-slider')
       progress.setAttribute('max', duration)
+      // Add record button
+      $(document.body).prepend(recordButton)
+      recordButton.onclick = () => {
+        startRecording()
+        values(mySwarm.remotes).forEach(remote => {
+          remote.startRecording()
+        })
+      }
+      // TODO: ready RPC call
     })
     elem.src = url
-    // TODO: Add main beat track UI.
     elem.ontimeupdate = () => {
       progress.value = elem.currentTime
     }
     let o = {audio: elem, name: file.name}
     track = beatTrackView(o)
+    track.querySelector('audio').id = 'beats-audio'
     document.getElementById('beats-container').appendChild(track)
   })
+}
+
+const recordButton = bel`
+<button id="record" class="ui compact labeled icon button">
+  <i class="unmute icon"></i>
+    Record
+</button>
+`
+
+function startRecording () {
+  let constraints = { audio: true, video: false}
+  let chunks = []
+
+  let mediaRecorder = new MediaRecorder(myMicrophone)
+  let audioElement = document.getElementById('beats-audio')
+  audioElement.onended = () => {
+    mediaRecorder.stop()
+  }
+  recordButton.setAttribute('disabled', true)
+  recordButton.onclick = null
+  audioElement.play()
+  mediaRecorder.start()
+
+  mediaRecorder.onstop = function(e) {
+    console.log('onstop')
+    let fullblob = new Blob(chunks, { 'type' : 'audio/ogg; codecs=opus' })
+    var audioURL = window.URL.createObjectURL(fullblob)
+    let audio = document.createElement('audio')
+    audio.src = audioURL
+    audio.controls = true
+    let elem = document.getElementById(`aundefined`).querySelector('div.track')
+    elem.appendChild(audio)
+
+    blobToBuffer(fullblob, (err, buffer) => {
+      if (err) return console.error(err)
+      torrentClient.seed(buffer, {name: `${myPublicKey}.ogg`}, torrent => {
+        // TODO: push seed message.
+        console.log('recorded', torrent)
+        values(mySwarm.remotes).forEach(remote => {
+          console.log('calling remote')
+          remote.getTrack(torrent)
+        })
+      })
+    })
+  }
+
+  mediaRecorder.ondataavailable = function(e) {
+    chunks.push(e.data)
+  }
+}
+
+function setupSwarm (swarm) {
+  swarm.rpc.getTrack = torrent => {
+    torrenetClient.add(torrent, _torrent => {
+      let id = _torrent.name.slice(0, _torrent.name.lastIndexOf('.'))
+      let elem = document.getElementById(`a${id}`).querySelector('div.track')
+      _torrent.files[0].appentTo(elem)
+    })
+  }
+  swarm.rpc.startRecording = () => {
+    startRecording()
+  }
 }
 
 function joinRoom (infoHash, room) {
@@ -70,8 +148,12 @@ function joinRoom (infoHash, room) {
     if (err) return console.error(err)
     if (!audioStream) return console.error("no audio")
     window.audioStream = audioStream
+    myMicrophone = audioStream
     let p = addPerson(audioStream)
     let swarm = createSwarm(signalHost, {stream: audioStream})
+    setupSwarm(swarm)
+    mySwarm = swarm
+    myPublicKey = swarm.publicKey
     swarm.joinRoom(roomHost, room)
     swarm.on('stream', stream => {
       // Hack.
@@ -96,7 +178,6 @@ function joinRoom (infoHash, room) {
         addBeatTrack(torrent.files[0])
       })
     }
-
   })
 }
 const mainButtons = funky`
@@ -114,6 +195,7 @@ const remoteAudio = funky`
         >
       </canvas>
     </div>
+    <div class="track"></div>
     <div class="extra content">
       <div class="volume">
         <div class="ui toggle checkbox">
@@ -152,7 +234,7 @@ function startLoop () {
       analyser.getByteFrequencyData(dataArray)
 
       canvasCtx.clearRect(0, 0, WIDTH, HEIGHT)
-      let barWidth = (WIDTH / bufferLength) * 4
+      let barWidth = (WIDTH / bufferLength) * 5
       let barHeight
       var x = 0
       for (var i = 0; i < bufferLength; i++) {
